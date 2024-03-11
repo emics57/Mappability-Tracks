@@ -82,7 +82,7 @@ def tuples_to_bed(tuples_list, bed_file_path, chrom):
 def main():
     output_bed_file=parser.parse_args().out
     # define mappable regions
-    coords = createCoords(chr,dataframe)
+    coords = createCoords(dataframe)
     # generate bed file
     tuples_to_bed(coords, output_bed_file, chr)
 
