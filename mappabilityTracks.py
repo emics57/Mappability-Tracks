@@ -4,6 +4,9 @@ import pysam
 
 """
 mappability.py takes a BAM file as input and outputs the mappable regions as a BED file.
+
+Example:
+python3 mappabilityBEDtools.py -b <BAM file> -o <output.bed>
 """
 
 parser = argparse.ArgumentParser()
