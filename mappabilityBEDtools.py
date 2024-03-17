@@ -5,6 +5,9 @@ import subprocess
 
 """
 mappability.py takes a BAM file as input and outputs the mappable regions as a BED file.
+
+Example:
+python3 mappabilityBEDtools.py -b <BAM file> -o <output.bed>
 """
 
 parser = argparse.ArgumentParser()
@@ -40,13 +43,14 @@ def createCoords(df):
     # obtain uniquely mapped reads
     value_counts = df[0].value_counts()
     unique_mapped_values = value_counts[value_counts == 1].index.tolist()
-    unique_mapped_df = df[df[0].isin(unique_mapped_values)& (df[1] != '4')]
+    unique_mapped_df = df[df[0].isin(unique_mapped_values)& (df[2] != 4)]
     unique_mapped_df[5] = unique_mapped_df[5].astype(int)
-
+    unique_mapped_df[6] = unique_mapped_df[6].astype(int)
+    
     # mapped coordinates of uniquely mapped reads
     mappedCoord = list(zip(unique_mapped_df[5], unique_mapped_df[6]))
     mappedCoord.sort()
-    mappedCoord = sorted(mappedCoord, key=lambda x: x[1])
+    mappedCoord = sorted(mappedCoord, key=lambda x: x[0])
     return mappedCoord
 
 def tuples_to_bed(tuples_list, bed_file_path, chrom):

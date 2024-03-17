@@ -20,12 +20,13 @@ alignments = pysam.AlignmentFile(bamInput,"rb")
 pysam.set_verbosity(save)
 for read in alignments:
     readName = read.query_name # read id
-    derivedName = readName.split(':')[0] # chromosome the read was derived from
+    derivedChr = readName.split(':')[0] # chromosome the read was derived from
     flag = read.flag # SAM flag
     cigarSize = read.infer_query_length() # read size inferred from cigar string
-    rname = alignments.get_reference_name(read.reference_id) # mapped chromosome name
-    ref_start = read.reference_start # mapped coordinate
-    bam_data.append([readName,derivedName,flag,rname,cigarSize,ref_start])
+    mappedChr = alignments.get_reference_name(read.reference_id) # mapped chromosome name
+    readStart = read.reference_start # mapped coordinate
+    readEnd = read.reference_end
+    bam_data.append([readName,derivedChr,flag,mappedChr,cigarSize,readStart,readEnd])
 dataframe = pd.DataFrame(bam_data)
 chr = dataframe.loc[0,1]
 
@@ -37,35 +38,37 @@ def createCoords(df):
     # obtain uniquely mapped reads
     value_counts = df[0].value_counts()
     unique_mapped_values = value_counts[value_counts == 1].index.tolist()
-    unique_mapped_df = df[df[0].isin(unique_mapped_values)& (df[1] != '4')]
-    unique_mapped_df[5] = unique_mapped_df[5].astype(int)
+    unique_mapped_df = df[df[0].isin(unique_mapped_values)& (df[2] != 4)]
+    unique_mapped_df.loc[:,5] = unique_mapped_df[5].astype(int)
+    unique_mapped_df.loc[:,6] = unique_mapped_df[6].astype(int)
 
     # mapped coordinates of uniquely mapped reads
-    mappedCoord = list(zip(unique_mapped_df[5], unique_mapped_df[4]))
+    mappedCoord = list(zip(unique_mapped_df[5], unique_mapped_df[6]))
     mappedCoord.sort()
-    mappedCoord = sorted(mappedCoord, key=lambda x: x[1])
+    mappedCoord = sorted(mappedCoord, key=lambda x: x[0])
 
     # define uniquely mapped regions
     tupleList=[]
     start = mappedCoord[0][0]
-    size = mappedCoord[0][1]
-    end = start+size
+    end = mappedCoord[0][1]
+    numReads=0
     for i in range(len(mappedCoord) - 1):
         # if end coord less than the next largest start coord -> start new region 
-        size = mappedCoord[i][1]
-        currCoord = mappedCoord[i][0]
-        nextCoord = mappedCoord[i+1][0]
-        if currCoord+size < nextCoord:
+        currReadStart = mappedCoord[i][0]
+        currReadEnd = mappedCoord[i][1]
+        nextReadStart = mappedCoord[i+1][0]
+        nextReadEnd = mappedCoord[i+1][0]
+        numReads+=1
+        if currReadEnd < nextReadStart:
             # set mappable end coordinate to current mapped coordinate + size
-            end = currCoord + size
-            tupleList.append((start,end))
+            end = currReadEnd # curr read's end coordinate
+            tupleList.append((start,end,numReads))
             # set start coordinate to next largest start coordinate
-            start = nextCoord
-            # set end coordinate to start + size
-            end = start+size
-    end = mappedCoord[i+1][0]
-    tupleList.append((start,end))
-    print(tupleList)
+            start = nextReadStart
+            numReads=0
+    end = mappedCoord[i+1][1]
+    numReads+=1
+    tupleList.append((start,end,numReads))
     return tupleList
 
 def tuples_to_bed(tuples_list, bed_file_path, chrom):
@@ -74,8 +77,8 @@ def tuples_to_bed(tuples_list, bed_file_path, chrom):
     """
     with open(bed_file_path, 'w') as bed_file:
         for tup in tuples_list:
-            start, end = tup
-            bed_line = f"{chrom}\t{start}\t{end}\n"
+            start, end, numReads = tup
+            bed_line = f"{chrom}\t{start}\t{end}\t{numReads}\n"
             bed_file.write(bed_line)
 
 
